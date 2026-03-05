@@ -15,13 +15,16 @@ from app.models.system_settings import SystemSettings
 TEST_PASSWORD = "test_admin_password_123"
 
 
-def _make_mock_session(password: str = TEST_PASSWORD) -> AsyncMock:
+def _make_mock_session(
+    password: str = TEST_PASSWORD,
+    password_hash: str | None = None,
+) -> AsyncMock:
     """构造返回 SystemSettings 的 mock AsyncSession。"""
     mock = AsyncMock()
     mock.get = AsyncMock(
         return_value=SystemSettings(
             id=1,
-            admin_password_hash=hash_password(password),
+            admin_password_hash=password_hash if password_hash is not None else hash_password(password),
             token_version=1,
         )
     )
@@ -92,3 +95,23 @@ def test_login_empty_password(client: TestClient):
 def test_login_missing_password_field(client: TestClient):
     resp = client.post("/api/v1/auth/login", json={})
     assert resp.status_code == 422  # Pydantic 校验失败
+
+
+def test_login_with_invalid_hash_returns_401(client: TestClient):
+    """数据库哈希异常时不应抛 500，应按密码错误返回 401。"""
+    from app.main import app
+
+    async def override_get_db():
+        yield _make_mock_session(password_hash="not_a_valid_bcrypt_hash")
+
+    previous_override = app.dependency_overrides.get(get_db)
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        resp = client.post("/api/v1/auth/login", json={"password": TEST_PASSWORD})
+        assert resp.status_code == 401
+        assert resp.json()["success"] is False
+    finally:
+        if previous_override is not None:
+            app.dependency_overrides[get_db] = previous_override
+        else:
+            app.dependency_overrides.pop(get_db, None)

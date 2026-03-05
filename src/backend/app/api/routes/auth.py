@@ -15,6 +15,7 @@ from app.api.deps import get_current_user, get_db
 from app.common.response import ApiResponse
 from app.core.config import settings
 from app.core.exceptions import UnauthorizedException
+from app.core.logging import get_logger
 from app.core.security import (
     WS_TICKET_PREFIX,
     create_access_token,
@@ -26,6 +27,7 @@ from app.models.system_settings import SystemSettings
 from app.schemas.auth import LoginRequest, TokenResponse, WsTicketResponse
 
 router = APIRouter()
+logger = get_logger(__name__)
 
 
 @router.post(
@@ -52,7 +54,16 @@ async def login(
     if row is None:
         raise UnauthorizedException("系统尚未初始化，请检查服务配置")
 
-    if not verify_password(body.password, row.admin_password_hash):
+    try:
+        ok = verify_password(body.password, row.admin_password_hash)
+    except Exception as exc:
+        logger.warning(
+            "密码校验失败（hash 异常）",
+            extra={"error": str(exc), "client_ip": client_ip},
+        )
+        ok = False
+
+    if not ok:
         raise UnauthorizedException("密码错误")
 
     token, expires_at = create_access_token("admin", row.token_version)

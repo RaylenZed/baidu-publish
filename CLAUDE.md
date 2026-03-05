@@ -330,12 +330,12 @@ Phase 4（安全与部署）:
 
 | 文件 | 职责 |
 |---|---|
-| `docker-compose.yml` | 6 服务编排入口（nginx/backend/worker/beat/redis/postgres） |
+| `docker-compose.yml` | 6 服务编排入口（frontend/backend/worker/beat/redis/postgres） |
 | `src/backend/Dockerfile.backend` | Python 3.11-slim 镜像，含 libpq-dev |
-| `deploy/nginx/default.conf` | 反向代理 + SPA 路由 + WebSocket 升级 |
+| `src/frontend/Dockerfile.frontend` | 前端构建与预览启动（Vite Preview） |
 | `src/backend/alembic.ini` | Alembic 配置，DB URL 由 env.py 动态注入 |
 | `src/backend/migrations/env.py` | Alembic 异步引擎配置（asyncpg） |
-| `src/backend/.env.example` | 所有环境变量说明（含必填/可选分类） |
+| `.env.example` | 单一环境变量模板（Compose + backend/worker/beat 共用） |
 
 ### 后端核心
 
@@ -375,4 +375,3 @@ Phase 4（安全与部署）:
 ## 9. 当前待解决问题
 
 （当前为空，开发过程中持续维护）
-
