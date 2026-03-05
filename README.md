@@ -45,6 +45,7 @@ REDIS_URL=redis://redis:6379/0
 ```bash
 VITE_API_BASE_URL=http://你的域名:18000/api/v1
 VITE_WS_BASE_URL=ws://你的域名:18000
+VITE_PREVIEW_ALLOWED_HOSTS=*
 CORS_ORIGINS=http://你的域名:15173
 ```
 
@@ -152,6 +153,7 @@ docker compose logs -f worker
 确认：
 
 - `VITE_WS_BASE_URL` 与后端地址一致
+- `VITE_PREVIEW_ALLOWED_HOSTS` 是否允许当前访问域名（建议 `*` 或包含你的 DDNS 域名）
 - `CORS_ORIGINS` 包含前端访问地址
 - 后端 18000 端口可达
 
