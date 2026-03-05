@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import DateTime, Enum as SAEnum, ForeignKey, Index, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from .base import Base
+from .base import Base, enum_values
 from app.core.constants import TaskStep, LogLevel
 
 if TYPE_CHECKING:
@@ -35,7 +35,12 @@ class TaskLog(Base):
         comment="所属任务 ID",
     )
     step: Mapped[TaskStep] = mapped_column(
-        SAEnum(TaskStep, name="task_step_enum", create_type=True),
+        SAEnum(
+            TaskStep,
+            name="task_step_enum",
+            create_type=True,
+            values_callable=enum_values,
+        ),
         nullable=False,
         comment="执行步骤：prompt / generate / polish / draft / cover / publish",
     )

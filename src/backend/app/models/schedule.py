@@ -27,7 +27,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from .base import Base, TimestampMixin
+from .base import Base, TimestampMixin, enum_values
 from app.core.constants import TaskMode
 
 if TYPE_CHECKING:
@@ -53,7 +53,12 @@ class Schedule(Base, TimestampMixin):
         comment="Cron 表达式，如 0 9 * * *",
     )
     mode: Mapped[TaskMode] = mapped_column(
-        SAEnum(TaskMode, name="task_mode_enum", create_type=False),  # 复用已建的 enum type
+        SAEnum(
+            TaskMode,
+            name="task_mode_enum",
+            create_type=False,
+            values_callable=enum_values,
+        ),  # 复用已建的 enum type
         nullable=False,
         comment="运行模式：draft / publish",
     )

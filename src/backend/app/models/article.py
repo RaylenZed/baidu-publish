@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import DateTime, Enum as SAEnum, ForeignKey, Index, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from .base import Base
+from .base import Base, enum_values
 from app.core.constants import PublishStatus, ContentWarning
 
 if TYPE_CHECKING:
@@ -73,14 +73,24 @@ class Article(Base):
         comment="封面图 URL，搜索失败允许为空（PUB-04）",
     )
     publish_status: Mapped[PublishStatus] = mapped_column(
-        SAEnum(PublishStatus, name="publish_status_enum", create_type=True),
+        SAEnum(
+            PublishStatus,
+            name="publish_status_enum",
+            create_type=True,
+            values_callable=enum_values,
+        ),
         nullable=False,
         default=PublishStatus.DRAFT,
         server_default=PublishStatus.DRAFT.value,
         comment="发布状态：draft / publishing / published / publish_failed",
     )
     content_warning: Mapped[ContentWarning | None] = mapped_column(
-        SAEnum(ContentWarning, name="content_warning_enum", create_type=True),
+        SAEnum(
+            ContentWarning,
+            name="content_warning_enum",
+            create_type=True,
+            values_callable=enum_values,
+        ),
         nullable=True,
         comment="内容级警告（文章列表展示橙色 Tag），如 partial_content（SSE 截断）",
     )

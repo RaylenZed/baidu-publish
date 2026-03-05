@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import DateTime, Enum as SAEnum, ForeignKey, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from .base import Base
+from .base import Base, enum_values
 from app.core.constants import (
     TaskMode,
     TaskStatus,
@@ -69,24 +69,44 @@ class Task(Base):
         comment="本次执行品类，取值范围见 CATEGORIES 常量",
     )
     mode: Mapped[TaskMode] = mapped_column(
-        SAEnum(TaskMode, name="task_mode_enum", create_type=True),
+        SAEnum(
+            TaskMode,
+            name="task_mode_enum",
+            create_type=True,
+            values_callable=enum_values,
+        ),
         nullable=False,
         comment="运行模式：draft（仅草稿）/ publish（正式发布）",
     )
     status: Mapped[TaskStatus] = mapped_column(
-        SAEnum(TaskStatus, name="task_status_enum", create_type=True),
+        SAEnum(
+            TaskStatus,
+            name="task_status_enum",
+            create_type=True,
+            values_callable=enum_values,
+        ),
         nullable=False,
         default=TaskStatus.PENDING,
         server_default=TaskStatus.PENDING.value,
         comment="任务状态：pending / running / success / failed / canceled / timeout",
     )
     error_type: Mapped[TaskErrorType | None] = mapped_column(
-        SAEnum(TaskErrorType, name="task_error_type_enum", create_type=True),
+        SAEnum(
+            TaskErrorType,
+            name="task_error_type_enum",
+            create_type=True,
+            values_callable=enum_values,
+        ),
         nullable=True,
         comment="失败细分类型，仅 failed/timeout 状态有值",
     )
     warning: Mapped[TaskWarning | None] = mapped_column(
-        SAEnum(TaskWarning, name="task_warning_enum", create_type=True),
+        SAEnum(
+            TaskWarning,
+            name="task_warning_enum",
+            create_type=True,
+            values_callable=enum_values,
+        ),
         nullable=True,
         comment="任务执行级警告，如 partial_content（SSE 截断降级）",
     )

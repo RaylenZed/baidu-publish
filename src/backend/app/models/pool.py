@@ -25,7 +25,7 @@ from sqlalchemy import DateTime, Enum as SAEnum, ForeignKey, Index, String, Uniq
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from .base import Base
+from .base import Base, enum_values
 from app.core.constants import PoolType
 
 if TYPE_CHECKING:
@@ -41,7 +41,12 @@ class VariablePool(Base):
         comment="主键",
     )
     pool_type: Mapped[PoolType] = mapped_column(
-        SAEnum(PoolType, name="pool_type_enum", create_type=True),
+        SAEnum(
+            PoolType,
+            name="pool_type_enum",
+            create_type=True,
+            values_callable=enum_values,
+        ),
         nullable=False,
         comment="池类型：angle / persona / style / structure / title_style / time_hook",
     )

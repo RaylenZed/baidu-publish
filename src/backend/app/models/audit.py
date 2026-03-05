@@ -23,7 +23,7 @@ from sqlalchemy import DateTime, Enum as SAEnum, ForeignKey, Index, Integer, Str
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from .base import Base
+from .base import Base, enum_values
 from app.core.constants import ContentEventType
 
 if TYPE_CHECKING:
@@ -96,7 +96,12 @@ class ContentEvent(Base):
         comment="主键",
     )
     event_type: Mapped[ContentEventType] = mapped_column(
-        SAEnum(ContentEventType, name="content_event_type_enum", create_type=True),
+        SAEnum(
+            ContentEventType,
+            name="content_event_type_enum",
+            create_type=True,
+            values_callable=enum_values,
+        ),
         nullable=False,
         comment="事件类型：task_created / task_succeeded / task_failed / article_published",
     )

@@ -18,7 +18,7 @@ from sqlalchemy import DateTime, Enum as SAEnum, Index, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from .base import Base, TimestampMixin
+from .base import Base, TimestampMixin, enum_values
 from app.core.constants import CookieStatus
 
 if TYPE_CHECKING:
@@ -52,7 +52,12 @@ class Account(Base, TimestampMixin):
         comment="绑定品类列表（1-2 个），如 [\"图书教育\"]",
     )
     cookie_status: Mapped[CookieStatus] = mapped_column(
-        SAEnum(CookieStatus, name="cookie_status_enum", create_type=True),
+        SAEnum(
+            CookieStatus,
+            name="cookie_status_enum",
+            create_type=True,
+            values_callable=enum_values,
+        ),
         nullable=False,
         default=CookieStatus.UNCHECKED,
         server_default=CookieStatus.UNCHECKED.value,

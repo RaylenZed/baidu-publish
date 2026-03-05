@@ -23,7 +23,7 @@ from datetime import datetime
 from sqlalchemy import Boolean, DateTime, Enum as SAEnum, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
-from .base import Base
+from .base import Base, enum_values
 from app.core.constants import (
     AigcModel,
     NotifyLevel,
@@ -59,14 +59,24 @@ class SystemSettings(Base):
     # ── 运行参数 ─────────────────────────────────────────────────────────────
 
     run_mode: Mapped[TaskMode] = mapped_column(
-        SAEnum(TaskMode, name="task_mode_enum", create_type=False),
+        SAEnum(
+            TaskMode,
+            name="task_mode_enum",
+            create_type=False,
+            values_callable=enum_values,
+        ),
         nullable=False,
         default=TaskMode.DRAFT,
         server_default=TaskMode.DRAFT.value,
         comment="全局默认运行模式：draft / publish",
     )
     aigc_model: Mapped[AigcModel] = mapped_column(
-        SAEnum(AigcModel, name="aigc_model_enum", create_type=True),
+        SAEnum(
+            AigcModel,
+            name="aigc_model_enum",
+            create_type=True,
+            values_callable=enum_values,
+        ),
         nullable=False,
         default=DEFAULT_AIGC_MODEL,
         server_default=DEFAULT_AIGC_MODEL.value,
@@ -147,7 +157,12 @@ class SystemSettings(Base):
         comment="企业微信机器人 Webhook URL，为空则不发通知",
     )
     notify_level: Mapped[NotifyLevel] = mapped_column(
-        SAEnum(NotifyLevel, name="notify_level_enum", create_type=True),
+        SAEnum(
+            NotifyLevel,
+            name="notify_level_enum",
+            create_type=True,
+            values_callable=enum_values,
+        ),
         nullable=False,
         default=NotifyLevel.FAILURE_ONLY,
         server_default=NotifyLevel.FAILURE_ONLY.value,

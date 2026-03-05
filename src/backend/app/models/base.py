@@ -5,6 +5,7 @@ SQLAlchemy 2.0 声明式基类与公共 Mixin。
 from __future__ import annotations
 
 from datetime import datetime
+from enum import Enum as PyEnum
 
 from sqlalchemy import DateTime, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -13,6 +14,16 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 class Base(DeclarativeBase):
     """所有模型的基类。"""
     pass
+
+
+def enum_values(enum_cls: type[PyEnum]) -> list[str]:
+    """
+    返回枚举 value 列表，供 SQLAlchemy Enum(values_callable=...) 使用。
+
+    目的：统一按枚举 value（如 "draft"）持久化，避免默认按 Enum.name
+    （如 "DRAFT"）写库导致与 PostgreSQL enum 标签不一致。
+    """
+    return [str(item.value) for item in enum_cls]
 
 
 class TimestampMixin:
