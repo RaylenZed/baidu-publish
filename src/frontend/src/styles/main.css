@@ -1,0 +1,69 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background-color: #f5f7fa;
+}
+
+#app {
+  min-height: 100vh;
+}
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* 页面通用样式 */
+.page-container {
+  padding: 16px;
+}
+
+/* 卡片样式优化 */
+.n-card {
+  border-radius: 8px;
+}
+
+/* 按钮样式优化 */
+.n-button {
+  border-radius: 6px;
+}
+
+/* 表格样式优化 */
+.n-data-table {
+  font-size: 14px;
+}
+
+/* 统计数字样式 */
+.n-statistic .n-statistic-value {
+  font-size: 28px;
+  font-weight: 600;
+}
+
+/* 标签样式 */
+.n-tag {
+  border-radius: 4px;
+}
