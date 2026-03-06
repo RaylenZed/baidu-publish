@@ -72,7 +72,9 @@ class ComboHistoryResponse(BaseModel):
 
 class SeedPoolsResponse(BaseModel):
     created: int = Field(ge=0, description="本次新增的默认池数量")
-    skipped: int = Field(ge=0, description="已存在而跳过的池数量")
+    merged_pools: int = Field(ge=0, description="已存在但补入了新默认条目的池数量")
+    merged_items: int = Field(ge=0, description="补入的默认条目总数")
+    skipped: int = Field(ge=0, description="已完整覆盖默认条目而跳过的池数量")
     total_defaults: int = Field(ge=0, description="内置默认池总数量")
 
 

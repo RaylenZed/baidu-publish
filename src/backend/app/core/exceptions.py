@@ -162,7 +162,7 @@ class NotFoundException(AppException):
 
 class ValidationException(AppException):
     def __init__(self, message: str, details: dict | None = None) -> None:
-        super().__init__("VALIDATION_ERROR", message, status.HTTP_422_UNPROCESSABLE_CONTENT, details)
+        super().__init__("VALIDATION_ERROR", message, status.HTTP_422_UNPROCESSABLE_ENTITY, details)
 
 
 # ── 全局处理器注册 ────────────────────────────────────────────────────────────
@@ -190,7 +190,7 @@ def register_exception_handlers(app: FastAPI) -> None:
     async def validation_error_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
         request_id = getattr(request.state, "request_id", "")
         return JSONResponse(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             content={
                 "success": False,
                 "errorCode": "VALIDATION_ERROR",

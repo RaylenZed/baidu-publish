@@ -24,7 +24,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.constants import (
-    CATEGORIES,
     CookieStatus,
     TaskMode,
     TaskStatus,

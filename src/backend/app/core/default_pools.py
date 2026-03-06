@@ -3,7 +3,8 @@
 
 数据来源：旧版单文件脚本 `bjh_auto_full_v7.py` 中已验证可用的变量池素材。
 策略：
-  - 启动时仅补齐缺失池，不覆盖管理员已在线编辑的数据
+  - 启动时补齐缺失池，并为已存在池追加缺失的内置默认条目
+  - 不覆盖管理员已在线编辑的数据
   - 权重默认 1，默认全部启用
 """
 
@@ -59,9 +60,88 @@ STRUCTURE_POOL_DEFAULTS: list[str] = ["纯叙述体", "小标题分段", "问答
 TITLE_STYLE_POOL_DEFAULTS: list[str] = ["疑问式", "数字式", "故事式", "反转式", "情感式", "实用式"]
 TIME_HOOK_POOL_DEFAULTS: list[str] = ["春天万物复苏", "夏天炎热", "秋天凉爽", "冬天寒冷", "周末午后", "深夜睡不着", "年初立flag", "年底总结", "发工资后", "搬家整理", "节假日宅家", "下班回家后"]
 
+ANGLE_POOL_EXPANSIONS: dict[str, list[str]] = {
+    "图书教育": ["考试提分", "自我成长复盘", "年度书单", "阅读误区"],
+    "家用日常": ["空间优化", "平替推荐", "家庭分工", "季节焕新"],
+    "精品服饰": ["预算穿搭", "显瘦技巧", "衣橱公式", "风格转型"],
+    "食品生鲜": ["家庭囤菜", "餐桌搭配", "季节食补", "地域吃法"],
+    "数码家电": ["长期体验", "旧机升级", "不同预算选择", "家庭组网"],
+    "美妆个护": ["熬夜修护", "换季维稳", "底妆持妆", "护肤顺序"],
+    "母婴用品": ["成长阶段清单", "入园准备", "带娃出行", "家庭分工"],
+    "运动户外": ["装备平替", "新手计划", "天气场景选择", "恢复拉伸"],
+    "鞋靴箱包": ["容量实测", "通勤耐用性", "预算分档", "一包多搭"],
+    "汽车用品": ["车内空气管理", "雨天用车", "四季养护", "高速场景"],
+    "珠宝配饰": ["通勤佩戴", "预算送礼", "肤色匹配", "场合搭配"],
+    "宠物用品": ["换粮过渡", "季节护理", "家庭清洁", "多宠协同"],
+    "鲜花园艺": ["低维护方案", "空间布置", "季节花单", "救活记录"],
+    "零食干货": ["低卡替代", "宿舍囤货", "口味测评", "搭配清单"],
+    "粮油调料": ["新手配方", "控糖控油", "地域风味", "一周厨房计划"],
+    "医疗保健": ["家庭常备", "换季防护", "中老年照护", "久坐修复"],
+    "家用器械": ["老人易用型", "小户型收纳", "预算选型", "恢复训练"],
+    "中医养生": ["节气饮食", "办公室调理", "体质辨别", "日常轻养"],
+}
+
+PERSONA_POOL_EXPANSIONS: dict[str, list[str]] = {
+    "图书教育": ["考研备考生", "想带娃阅读的爸爸", "想系统学习的转行者", "习惯做读书笔记的人"],
+    "家用日常": ["小户型改造爱好者", "精打细算的家庭采购者", "刚搬进新房的上班族", "周末喜欢大扫除的人"],
+    "精品服饰": ["预算有限但想穿得体面的新人", "换季总想重整衣橱的人", "经常出差的通勤族", "喜欢研究版型的细节控"],
+    "食品生鲜": ["注重营养搭配的宝妈", "每周自己做饭的独居青年", "喜欢囤应季食材的人", "只想高效做饭的上班族"],
+    "数码家电": ["家里准备第一次升级家电的人", "想控制预算的学生党", "注重长期稳定使用的家庭用户", "喜欢折腾智能设备的极客"],
+    "美妆个护": ["换季容易泛红的人", "每天通勤需要快速出门的女生", "想精简护肤步骤的懒人", "长期关注抗老节奏的熟龄用户"],
+    "母婴用品": ["准备待产包的新手孕妈", "每天精打细算带娃的爸爸", "刚开始研究辅食的宝妈", "准备送母婴礼盒的亲友"],
+    "运动户外": ["刚下定决心开始锻炼的人", "每周固定健身三次的通勤族", "计划带朋友露营的新手", "关注运动恢复的跑者"],
+    "鞋靴箱包": ["每天背电脑通勤的白领", "想一包搞定短途旅行的人", "注重脚感的久站工作者", "想少买但买对的实用主义者"],
+    "汽车用品": ["刚买第一辆车的新手", "经常跑高速的家庭车主", "需要保持车内整洁的宝爸", "重视行车安全配置的人"],
+    "珠宝配饰": ["日常只想小范围点缀的人", "想买第一件入门珠宝的用户", "准备节日送礼的伴侣", "注重材质和佩戴舒适度的人"],
+    "宠物用品": ["想把养宠成本控制住的铲屎官", "关注宠物情绪稳定的主人", "需要兼顾清洁和颜值的家庭用户", "第一次买宠物基础用品的新手"],
+    "鲜花园艺": ["总想把阳台打理漂亮的人", "租房但也想养绿植的打工人", "喜欢低成本布置空间的女生", "每次买花都怕养不活的新手"],
+    "零食干货": ["控制热量但停不下嘴的人", "喜欢给办公室囤零食的同事", "经常给家里孩子备零嘴的妈妈", "爱研究地方特产的人"],
+    "粮油调料": ["想把家常菜做稳定的新手", "重视成分表的家庭主厨", "喜欢尝试不同风味的吃货", "做饭讲究效率的上班族"],
+    "医疗保健": ["给父母准备家庭常备的人", "最近开始重视体检结果的上班族", "需要长期关注作息的熬夜人群", "想建立健康习惯的中年用户"],
+    "家用器械": ["想给爸妈买实用器械的子女", "需要在家做基础康复训练的人", "不喜欢复杂操作的长辈用户", "关注家庭日常监测的实用派"],
+    "中医养生": ["最近开始调理作息的打工人", "想把养生做得更简单的人", "注重节气节律的家庭用户", "容易手脚冰凉的年轻女生"],
+}
+
+STYLE_POOL_EXPANSIONS: list[str] = ["经验复盘", "朋友聊天", "专业评测", "极简总结", "反常识提醒", "生活记录"]
+STRUCTURE_POOL_EXPANSIONS: list[str] = ["结论前置", "问题-原因-方案", "时间线", "对比表", "步骤拆解", "分层推荐"]
+TITLE_STYLE_POOL_EXPANSIONS: list[str] = ["避坑式", "结果式", "场景式", "对比式", "清单式", "反问式"]
+TIME_HOOK_POOL_EXPANSIONS: list[str] = ["换季前后", "开学季", "通勤路上", "周末宅家", "熬夜之后", "准备送礼时"]
+
+GENERIC_ANGLE_POOL_DEFAULTS: list[str] = [
+    "选购指南",
+    "使用技巧",
+    "避坑经验",
+    "场景推荐",
+    "预算分档",
+    "长期体验",
+    "清单推荐",
+    "对比测评",
+]
+
+GENERIC_PERSONA_POOL_DEFAULTS: list[str] = [
+    "普通上班族",
+    "家庭采购决策者",
+    "第一次尝试的新手",
+    "注重性价比的人",
+    "长期使用者",
+    "送礼选择困难症",
+    "关注品质体验的人",
+]
+
 
 def _to_items(values: list[str]) -> list[dict[str, object]]:
     return [{"value": value, "weight": 1, "enabled": True} for value in values]
+
+
+def _merge_unique_values(*groups: list[str]) -> list[str]:
+    merged: list[str] = []
+    seen: set[str] = set()
+    for group in groups:
+        for value in group:
+            if value not in seen:
+                merged.append(value)
+                seen.add(value)
+    return merged
 
 
 def build_default_pool_rows() -> list[dict[str, object]]:
@@ -84,14 +164,24 @@ def build_default_pool_rows() -> list[dict[str, object]]:
             {
                 "pool_type": PoolType.ANGLE,
                 "category": category,
-                "items": _to_items(ANGLE_POOL_DEFAULTS[category]),
+                "items": _to_items(
+                    _merge_unique_values(
+                        ANGLE_POOL_DEFAULTS[category],
+                        ANGLE_POOL_EXPANSIONS.get(category, []),
+                    )
+                ),
             }
         )
         rows.append(
             {
                 "pool_type": PoolType.PERSONA,
                 "category": category,
-                "items": _to_items(PERSONA_POOL_DEFAULTS[category]),
+                "items": _to_items(
+                    _merge_unique_values(
+                        PERSONA_POOL_DEFAULTS[category],
+                        PERSONA_POOL_EXPANSIONS.get(category, []),
+                    )
+                ),
             }
         )
 
@@ -100,24 +190,51 @@ def build_default_pool_rows() -> list[dict[str, object]]:
             {
                 "pool_type": PoolType.STYLE,
                 "category": None,
-                "items": _to_items(STYLE_POOL_DEFAULTS),
+                "items": _to_items(_merge_unique_values(STYLE_POOL_DEFAULTS, STYLE_POOL_EXPANSIONS)),
             },
             {
                 "pool_type": PoolType.STRUCTURE,
                 "category": None,
-                "items": _to_items(STRUCTURE_POOL_DEFAULTS),
+                "items": _to_items(
+                    _merge_unique_values(STRUCTURE_POOL_DEFAULTS, STRUCTURE_POOL_EXPANSIONS)
+                ),
             },
             {
                 "pool_type": PoolType.TITLE_STYLE,
                 "category": None,
-                "items": _to_items(TITLE_STYLE_POOL_DEFAULTS),
+                "items": _to_items(
+                    _merge_unique_values(TITLE_STYLE_POOL_DEFAULTS, TITLE_STYLE_POOL_EXPANSIONS)
+                ),
             },
             {
                 "pool_type": PoolType.TIME_HOOK,
                 "category": None,
-                "items": _to_items(TIME_HOOK_POOL_DEFAULTS),
+                "items": _to_items(
+                    _merge_unique_values(TIME_HOOK_POOL_DEFAULTS, TIME_HOOK_POOL_EXPANSIONS)
+                ),
             },
         ]
     )
 
     return rows
+
+
+def build_starter_pool_rows_for_category(category: str) -> list[dict[str, object]]:
+    """
+    为后台新增品类生成一套 starter 变量池。
+
+    仅生成品类专属的 angle/persona 两个池，供新品类先跑通主链路，
+    后续由管理员在变量池页继续细化。
+    """
+    return [
+        {
+            "pool_type": PoolType.ANGLE,
+            "category": category,
+            "items": _to_items(GENERIC_ANGLE_POOL_DEFAULTS),
+        },
+        {
+            "pool_type": PoolType.PERSONA,
+            "category": category,
+            "items": _to_items(GENERIC_PERSONA_POOL_DEFAULTS),
+        },
+    ]

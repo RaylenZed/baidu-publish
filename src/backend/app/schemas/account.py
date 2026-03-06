@@ -1,7 +1,7 @@
 """
 账号管理 Pydantic Schema（请求体 + 响应体）。
 
-ACC-01  categories 长度 1-2，值来自 CATEGORIES 枚举
+ACC-01  categories 长度 1-2，值来自数据库启用品类列表
 ACC-02  name 全局唯一（DB UNIQUE 约束兜底）
 ACC-03  cookie 必须包含 BDUSS=
 """
@@ -13,7 +13,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, Field, field_validator
 
-from app.core.constants import CATEGORIES, CookieStatus
+from app.core.constants import CookieStatus
 
 # ── 请求体 ─────────────────────────────────────────────────────────────────
 
@@ -35,10 +35,7 @@ class CreateAccountRequest(BaseModel):
 
     @field_validator("categories")
     @classmethod
-    def categories_must_be_valid(cls, v: list[str]) -> list[str]:
-        invalid = [c for c in v if c not in CATEGORIES]
-        if invalid:
-            raise ValueError(f"品类 {invalid} 不在允许的品类列表中")
+    def categories_must_be_distinct(cls, v: list[str]) -> list[str]:
         if len(set(v)) != len(v):
             raise ValueError("品类不能重复")
         return v
@@ -58,12 +55,9 @@ class UpdateAccountRequest(BaseModel):
 
     @field_validator("categories")
     @classmethod
-    def categories_must_be_valid(cls, v: list[str] | None) -> list[str] | None:
+    def categories_must_be_distinct(cls, v: list[str] | None) -> list[str] | None:
         if v is None:
             return v
-        invalid = [c for c in v if c not in CATEGORIES]
-        if invalid:
-            raise ValueError(f"品类 {invalid} 不在允许的品类列表中")
         if len(set(v)) != len(v):
             raise ValueError("品类不能重复")
         return v

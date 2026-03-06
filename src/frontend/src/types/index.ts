@@ -88,6 +88,15 @@ export interface VariablePool {
   updated_at: string
 }
 
+export interface Category {
+  id: number
+  name: string
+  enabled: boolean
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
 // 仪表盘统计
 export interface DashboardStats {
   success_count: number

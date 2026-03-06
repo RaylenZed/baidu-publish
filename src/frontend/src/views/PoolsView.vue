@@ -144,7 +144,7 @@ async function seedDefaults() {
     const res: any = await poolsApi.seedDefaults()
     const data = res?.data ?? res
     message.success(
-      `补齐完成：新增 ${data?.created ?? 0} 条，跳过 ${data?.skipped ?? 0} 条`
+      `补齐完成：新增池 ${data?.created ?? 0} 条，合并池 ${data?.merged_pools ?? 0} 条，新增条目 ${data?.merged_items ?? 0} 个`
     )
     await loadPools()
   } catch (e: any) {

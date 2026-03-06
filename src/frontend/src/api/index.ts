@@ -149,6 +149,14 @@ export const poolsApi = {
 // === 品类 API ===
 export const categoriesApi = {
   list: () => client.get<string[]>('/settings/categories'),
+  manageList: () => client.get('/settings/categories/manage'),
+  create: (data: { name: string; enabled?: boolean; sort_order?: number | null }) =>
+    client.post('/settings/categories', data),
+  update: (
+    id: number,
+    data: { name?: string; enabled?: boolean; sort_order?: number | null }
+  ) => client.put(`/settings/categories/${id}`, data),
+  delete: (id: number) => client.delete(`/settings/categories/${id}`),
 }
 
 // === 系统设置 API ===

@@ -17,8 +17,11 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.constants import CATEGORIES, PoolType
-from app.core.default_pools import build_default_pool_rows
+from app.core.constants import PoolType
+from app.core.default_pools import (
+    build_default_pool_rows,
+    build_starter_pool_rows_for_category,
+)
 from app.core.exceptions import NotFoundException, ValidationException
 from app.models.pool import ComboHistory, VariablePool
 from app.schemas.pool import ComboResult, PoolItem, SeedPoolsResponse, UpdatePoolRequest
@@ -58,6 +61,32 @@ def _weighted_choice(items: list[dict]) -> tuple[str, int]:
     return last_item["value"], last_idx + 1
 
 
+def merge_missing_pool_items(
+    existing_items: list[dict],
+    default_items: list[dict],
+) -> tuple[list[dict], int]:
+    """
+    将 default_items 中缺失的 value 追加到 existing_items 末尾。
+
+    约束：
+      - 仅按 value 判重
+      - 不改动已有条目的 weight / enabled / 顺序
+      - 缺失默认条目使用默认 weight/enabled
+    """
+    existing_values = {
+        str(item.get("value")).strip()
+        for item in existing_items
+        if isinstance(item, dict) and item.get("value")
+    }
+    missing_items = [
+        item for item in default_items
+        if str(item.get("value")).strip() not in existing_values
+    ]
+    if not missing_items:
+        return list(existing_items), 0
+    return [*existing_items, *missing_items], len(missing_items)
+
+
 class PoolService:
     """变量池加权随机与组合管理。"""
 
@@ -92,30 +121,83 @@ class PoolService:
 
     async def seed_default_pools(self, db: AsyncSession) -> SeedPoolsResponse:
         """
-        补齐内置默认变量池，不覆盖已有记录。
+        补齐内置默认变量池。
+
+        行为：
+          - 缺失池：直接创建
+          - 已存在池：补齐缺失的默认条目
+          - 已有条目：保持原顺序、权重、启用状态不变
         """
         defaults = build_default_pool_rows()
         result = await db.execute(
-            select(VariablePool.pool_type, VariablePool.category)
+            select(VariablePool)
         )
-        existing = {(pool_type, category) for pool_type, category in result.all()}
+        existing = {
+            (row.pool_type, row.category): row
+            for row in result.scalars().all()
+        }
 
         created = 0
+        merged_pools = 0
+        merged_items = 0
+        skipped = 0
         for row in defaults:
             key = (row["pool_type"], row["category"])
-            if key in existing:
+            existing_row = existing.get(key)
+            if existing_row is None:
+                new_row = VariablePool(**row)
+                db.add(new_row)
+                existing[key] = new_row
+                created += 1
                 continue
-            db.add(VariablePool(**row))
-            existing.add(key)
-            created += 1
+
+            merged, added = merge_missing_pool_items(
+                existing_row.items or [],
+                row["items"],
+            )
+            if added > 0:
+                existing_row.items = merged
+                merged_pools += 1
+                merged_items += added
+            else:
+                skipped += 1
 
         await db.flush()
         total_defaults = len(defaults)
         return SeedPoolsResponse(
             created=created,
-            skipped=total_defaults - created,
+            merged_pools=merged_pools,
+            merged_items=merged_items,
+            skipped=skipped,
             total_defaults=total_defaults,
         )
+
+    async def ensure_category_pools(self, db: AsyncSession, category: str) -> int:
+        """
+        为新品类补齐 angle/persona starter 池。
+        返回本次新增池数量（0-2）。
+        """
+        starter_rows = build_starter_pool_rows_for_category(category)
+        result = await db.execute(
+            select(VariablePool.pool_type, VariablePool.category).where(
+                and_(
+                    VariablePool.pool_type.in_(CATEGORY_POOL_TYPES),
+                    VariablePool.category == category,
+                )
+            )
+        )
+        existing = {(pool_type, pool_category) for pool_type, pool_category in result.all()}
+
+        created = 0
+        for row in starter_rows:
+            key = (row["pool_type"], row["category"])
+            if key in existing:
+                continue
+            db.add(VariablePool(**row))
+            created += 1
+
+        await db.flush()
+        return created
 
     # ── 更新 / 创建（upsert）─────────────────────────────────────────────────
 
@@ -127,7 +209,7 @@ class PoolService:
     ) -> VariablePool:
         """
         更新（或首次创建）变量池。
-        - 品类专属池（angle/persona）：data.category 必填且须在 CATEGORIES 枚举中
+        - 品类专属池（angle/persona）：data.category 必填且须在系统品类表中
         - 通用池：忽略 data.category（强制 NULL）
         """
         # 决定实际存储的 category
@@ -136,9 +218,13 @@ class PoolService:
                 raise ValidationException(
                     f"{pool_type.value} 是品类专属池，更新时必须提供 category"
                 )
-            if data.category not in CATEGORIES:
-                raise ValidationException(f"品类「{data.category}」不在系统品类列表中")
-            actual_category: str | None = data.category
+            from app.services.category_service import CategoryService
+
+            actual_category = await CategoryService().ensure_category_exists(
+                db,
+                data.category,
+                enabled_only=False,
+            )
         else:
             actual_category = None  # 通用池不绑定品类
 

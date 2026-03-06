@@ -21,7 +21,7 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.constants import CATEGORIES, CookieStatus, TaskStatus
+from app.core.constants import CookieStatus, TaskStatus
 from app.core.exceptions import (
     AccountCookieExpiredException,
     AccountHasPendingTasksException,
@@ -41,8 +41,10 @@ from app.schemas.account import (
     ImportResult,
     UpdateAccountRequest,
 )
+from app.services.category_service import CategoryService
 
 logger = get_logger(__name__)
+_category_svc = CategoryService()
 
 # ── 加密常量 ──────────────────────────────────────────────────────────────────
 
@@ -134,10 +136,17 @@ class AccountService:
         db: AsyncSession,
         data: CreateAccountRequest,
     ) -> Account:
+        categories = await _category_svc.validate_category_names(
+            db,
+            data.categories,
+            min_count=1,
+            max_count=2,
+            enabled_only=True,
+        )
         account = Account(
             name=data.name,
             cookie_encrypted=encrypt_cookie(data.cookie),
-            categories=data.categories,
+            categories=categories,
             cookie_status=CookieStatus.UNCHECKED,
         )
         db.add(account)
@@ -166,7 +175,13 @@ class AccountService:
             account.cookie_status = CookieStatus.UNCHECKED   # 更新后重置状态
             account.cookie_checked_at = None
         if data.categories is not None:
-            account.categories = data.categories
+            account.categories = await _category_svc.validate_category_names(
+                db,
+                data.categories,
+                min_count=1,
+                max_count=2,
+                enabled_only=True,
+            )
 
         try:
             await db.flush()
@@ -331,10 +346,17 @@ class AccountService:
                 failed += 1
                 details.append({"name": name, "reason": "name 为空或 Cookie 缺少 BDUSS="})
                 continue
-            invalid_cats = [c for c in categories if c not in CATEGORIES]
-            if invalid_cats or not (1 <= len(categories) <= 2):
+            try:
+                normalized_categories = await _category_svc.validate_category_names(
+                    db,
+                    categories,
+                    min_count=1,
+                    max_count=2,
+                    enabled_only=True,
+                )
+            except ValidationException as exc:
                 failed += 1
-                details.append({"name": name, "reason": f"品类无效或数量错误: {categories}"})
+                details.append({"name": name, "reason": exc.message})
                 continue
 
             # Upsert —— 每条使用 SAVEPOINT，失败只回滚当条，不影响已成功的条目
@@ -343,7 +365,7 @@ class AccountService:
                 async with db.begin_nested():
                     if existing:
                         existing.cookie_encrypted = encrypt_cookie(cookie)
-                        existing.categories = categories
+                        existing.categories = normalized_categories
                         await db.flush()
                         updated += 1
                     else:
@@ -351,7 +373,7 @@ class AccountService:
                             Account(
                                 name=name,
                                 cookie_encrypted=encrypt_cookie(cookie),
-                                categories=categories,
+                                categories=normalized_categories,
                                 cookie_status=CookieStatus.UNCHECKED,
                             )
                         )

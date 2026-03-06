@@ -76,8 +76,9 @@ async def seed_default_pools(
     将系统内置默认变量池补齐到数据库中。
 
     行为：
-    - 仅补齐缺失记录
-    - 不覆盖已有变量池内容
+    - 缺失池会自动创建
+    - 已存在池会自动合并缺失的内置默认条目
+    - 不覆盖已有变量池条目的顺序、权重与启用状态
     - 可重复执行
     """
     result = await _svc.seed_default_pools(db)

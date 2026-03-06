@@ -15,7 +15,6 @@ from typing import Annotated
 from pydantic import BaseModel, Field, field_validator
 
 from app.core.constants import (
-    CATEGORIES,
     LogLevel,
     TaskErrorType,
     TaskMode,
@@ -47,9 +46,7 @@ class CreateTaskRequest(BaseModel):
     def category_must_be_valid(cls, v: str | None) -> str | None:
         if v is None or v == "":
             return None  # 留空则随机选择
-        if v not in CATEGORIES:
-            raise ValueError(f"品类「{v}」不在系统品类列表中")
-        return v
+        return v.strip()
 
 
 # ── 响应体 ─────────────────────────────────────────────────────────────────

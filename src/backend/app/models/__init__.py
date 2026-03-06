@@ -7,6 +7,7 @@
 from .base import Base, TimestampMixin  # noqa: F401
 
 # 无外键依赖的表
+from .category import Category  # noqa: F401
 from .system_settings import SystemSettings  # noqa: F401
 from .schedule import Schedule, ScheduleAccount  # noqa: F401
 from .pool import VariablePool, ComboHistory  # noqa: F401
@@ -27,6 +28,7 @@ from .audit import PublishAttempt, ContentEvent  # noqa: F401
 __all__ = [
     "Base",
     "TimestampMixin",
+    "Category",
     "Account",
     "Task",
     "Article",

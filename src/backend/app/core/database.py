@@ -75,8 +75,20 @@ async def init_db() -> None:
     async with engine.connect() as conn:
         await conn.execute(sqlalchemy.text("SELECT 1"))
 
+    await _init_categories()
     await _init_system_settings()
     await _init_default_pools()
+
+
+async def _init_categories() -> None:
+    """补齐默认 categories 主数据。"""
+    from app.services.category_service import CategoryService
+
+    async with AsyncSessionLocal() as session:
+        created = await CategoryService().seed_default_categories(session)
+        if created > 0:
+            await session.commit()
+            logger.info("已补齐内置品类 %s 个", created)
 
 
 async def _init_system_settings() -> None:
@@ -110,9 +122,14 @@ async def _init_default_pools() -> None:
 
     async with AsyncSessionLocal() as session:
         seeded = await PoolService().seed_default_pools(session)
-        if seeded.created > 0:
+        if seeded.created > 0 or seeded.merged_items > 0:
             await session.commit()
-            logger.info("已补齐内置变量池 %s 个", seeded.created)
+            logger.info(
+                "已补齐内置变量池 created=%s merged_pools=%s merged_items=%s",
+                seeded.created,
+                seeded.merged_pools,
+                seeded.merged_items,
+            )
 
 
 async def close_db() -> None:
