@@ -14,7 +14,6 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
-from sqlalchemy import select
 
 from app.core.config import settings
 from app.core.logging import get_logger
@@ -107,27 +106,13 @@ async def _init_default_pools() -> None:
     2. 不覆盖管理员已维护的数据
     3. 可安全重复执行
     """
-    from app.core.default_pools import build_default_pool_rows
-    from app.models.pool import VariablePool
+    from app.services.pool_service import PoolService
 
     async with AsyncSessionLocal() as session:
-        result = await session.execute(
-            select(VariablePool.pool_type, VariablePool.category)
-        )
-        existing = {(pool_type, category) for pool_type, category in result.all()}
-
-        created_count = 0
-        for row in build_default_pool_rows():
-            key = (row["pool_type"], row["category"])
-            if key in existing:
-                continue
-            session.add(VariablePool(**row))
-            existing.add(key)
-            created_count += 1
-
-        if created_count > 0:
+        seeded = await PoolService().seed_default_pools(session)
+        if seeded.created > 0:
             await session.commit()
-            logger.info("已补齐内置变量池 %s 个", created_count)
+            logger.info("已补齐内置变量池 %s 个", seeded.created)
 
 
 async def close_db() -> None:

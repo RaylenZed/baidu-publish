@@ -21,6 +21,7 @@ from app.core.exceptions import ValidationException
 from app.schemas.pool import (
     ComboHistoryResponse,
     PoolResponse,
+    SeedPoolsResponse,
     UpdatePoolRequest,
 )
 from app.services.pool_service import PoolService
@@ -60,6 +61,28 @@ async def get_combo_history(
     """查询近 N 天内的组合使用历史，可按账号 ID 或品类过滤。"""
     history = await _svc.get_combo_history(db, account_id, category, days)
     return ApiResponse.ok([ComboHistoryResponse.model_validate(h) for h in history])
+
+
+@router.post(
+    "/seed-defaults",
+    summary="补齐内置默认变量池",
+    response_model=ApiResponse[SeedPoolsResponse],
+)
+async def seed_default_pools(
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> ApiResponse[SeedPoolsResponse]:
+    """
+    将系统内置默认变量池补齐到数据库中。
+
+    行为：
+    - 仅补齐缺失记录
+    - 不覆盖已有变量池内容
+    - 可重复执行
+    """
+    result = await _svc.seed_default_pools(db)
+    await db.commit()
+    return ApiResponse.ok(result)
 
 
 # ── 动态路径 ──────────────────────────────────────────────────────────────────

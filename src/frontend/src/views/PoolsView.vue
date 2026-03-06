@@ -18,6 +18,7 @@ type PoolData = {
 const message = useMessage()
 const loading = ref(false)
 const saving = ref(false)
+const seeding = ref(false)
 
 // 原始数据存储
 const allPools = ref<PoolData[]>([])
@@ -137,6 +138,22 @@ async function savePool() {
   }
 }
 
+async function seedDefaults() {
+  seeding.value = true
+  try {
+    const res: any = await poolsApi.seedDefaults()
+    const data = res?.data ?? res
+    message.success(
+      `补齐完成：新增 ${data?.created ?? 0} 条，跳过 ${data?.skipped ?? 0} 条`
+    )
+    await loadPools()
+  } catch (e: any) {
+    message.error('补齐默认池失败: ' + (e.response?.data?.message || e.message || e))
+  } finally {
+    seeding.value = false
+  }
+}
+
 function handlePoolTypeChange(poolType: string) {
   currentPoolType.value = poolType
   // 自动选择该池类型已有的第一个品类
@@ -226,6 +243,9 @@ function removeItem(idx: number) {
           />
           <NButton @click="addItem">
             + 新增条目
+          </NButton>
+          <NButton :loading="seeding" @click="seedDefaults">
+            补齐默认池
           </NButton>
           <NButton type="primary" :loading="saving" @click="savePool">
             保存

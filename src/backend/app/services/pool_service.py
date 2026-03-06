@@ -18,9 +18,10 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.constants import CATEGORIES, PoolType
+from app.core.default_pools import build_default_pool_rows
 from app.core.exceptions import NotFoundException, ValidationException
 from app.models.pool import ComboHistory, VariablePool
-from app.schemas.pool import ComboResult, PoolItem, UpdatePoolRequest
+from app.schemas.pool import ComboResult, PoolItem, SeedPoolsResponse, UpdatePoolRequest
 from app.utils.combo import build_combo_id
 
 # 品类专属池类型（需要提供 category）
@@ -88,6 +89,33 @@ class PoolService:
             cat_desc = f"/{category}" if category else ""
             raise NotFoundException(f"变量池 {pool_type.value}{cat_desc} 不存在，请先通过 PUT 创建")
         return row
+
+    async def seed_default_pools(self, db: AsyncSession) -> SeedPoolsResponse:
+        """
+        补齐内置默认变量池，不覆盖已有记录。
+        """
+        defaults = build_default_pool_rows()
+        result = await db.execute(
+            select(VariablePool.pool_type, VariablePool.category)
+        )
+        existing = {(pool_type, category) for pool_type, category in result.all()}
+
+        created = 0
+        for row in defaults:
+            key = (row["pool_type"], row["category"])
+            if key in existing:
+                continue
+            db.add(VariablePool(**row))
+            existing.add(key)
+            created += 1
+
+        await db.flush()
+        total_defaults = len(defaults)
+        return SeedPoolsResponse(
+            created=created,
+            skipped=total_defaults - created,
+            total_defaults=total_defaults,
+        )
 
     # ── 更新 / 创建（upsert）─────────────────────────────────────────────────
 

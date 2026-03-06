@@ -141,6 +141,7 @@ export const poolsApi = {
     client.get(`/pools/${poolType}`, { params: { category } }),
   update: (poolType: string, data: { category?: string; items: any[] }) =>
     client.put(`/pools/${poolType}`, data),
+  seedDefaults: () => client.post('/pools/seed-defaults'),
   comboHistory: (params?: { account_id?: number; category?: string; days?: number }) =>
     client.get('/pools/combo-history', { params }),
 }

@@ -70,6 +70,12 @@ class ComboHistoryResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class SeedPoolsResponse(BaseModel):
+    created: int = Field(ge=0, description="本次新增的默认池数量")
+    skipped: int = Field(ge=0, description="已存在而跳过的池数量")
+    total_defaults: int = Field(ge=0, description="内置默认池总数量")
+
+
 # ── 内部数据类（sample_combo 返回值）────────────────────────────────────────
 
 
