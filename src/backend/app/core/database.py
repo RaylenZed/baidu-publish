@@ -14,8 +14,10 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
+from sqlalchemy import select
 
 from app.core.config import settings
+from app.core.logging import get_logger
 
 # ── 引擎 ─────────────────────────────────────────────────────────────────────
 
@@ -36,6 +38,8 @@ AsyncSessionLocal = async_sessionmaker(
     autoflush=False,
     autocommit=False,
 )
+
+logger = get_logger(__name__)
 
 
 # ── FastAPI 依赖注入用 ────────────────────────────────────────────────────────
@@ -73,6 +77,7 @@ async def init_db() -> None:
         await conn.execute(sqlalchemy.text("SELECT 1"))
 
     await _init_system_settings()
+    await _init_default_pools()
 
 
 async def _init_system_settings() -> None:
@@ -91,6 +96,38 @@ async def _init_system_settings() -> None:
             )
             session.add(row)
             await session.commit()
+
+
+async def _init_default_pools() -> None:
+    """
+    补齐内置默认变量池。
+
+    行为约束：
+    1. 仅创建缺失池
+    2. 不覆盖管理员已维护的数据
+    3. 可安全重复执行
+    """
+    from app.core.default_pools import build_default_pool_rows
+    from app.models.pool import VariablePool
+
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(
+            select(VariablePool.pool_type, VariablePool.category)
+        )
+        existing = {(pool_type, category) for pool_type, category in result.all()}
+
+        created_count = 0
+        for row in build_default_pool_rows():
+            key = (row["pool_type"], row["category"])
+            if key in existing:
+                continue
+            session.add(VariablePool(**row))
+            existing.add(key)
+            created_count += 1
+
+        if created_count > 0:
+            await session.commit()
+            logger.info("已补齐内置变量池 %s 个", created_count)
 
 
 async def close_db() -> None:
