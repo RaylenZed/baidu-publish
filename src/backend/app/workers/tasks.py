@@ -32,7 +32,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import re
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from typing import AsyncGenerator
@@ -67,6 +66,7 @@ from app.services.audit_service import AuditService
 from app.services.bjh_service import BjhService
 from app.services.notify_service import NotifyService
 from app.services.pool_service import PoolService
+from app.utils.cover import build_cover_keywords
 from app.ws.task_log_stream import publish_done, publish_log
 
 logger = get_logger(__name__)
@@ -313,9 +313,14 @@ async def _async_run_task(task_id: int) -> None:
         current_step = TaskStep.COVER
         # 发布前刷新 edit_token
         edit_token = await _bjh.get_edit_token(cookie, timeout=float(cvr_timeout))
-        keyword = _extract_keyword(title, category)
-        cover_url = await _bjh.search_cover(
-            cookie, edit_token, keyword, bjh_aid, timeout=float(cvr_timeout)
+        cover_keywords = build_cover_keywords(
+            title=title,
+            category=category,
+            topic_keyword=topic_keyword,
+            product_name=product_name,
+        )
+        cover_url, matched_keyword, attempted_keywords = await _bjh.search_cover_candidates(
+            cookie, edit_token, cover_keywords, bjh_aid, timeout=float(cvr_timeout)
         )
 
         async with _worker_session() as db:
@@ -324,12 +329,64 @@ async def _async_run_task(task_id: int) -> None:
                 if art:
                     art.cover_url = cover_url
             cover_lvl = LogLevel.INFO if cover_url else LogLevel.WARN
-            cover_msg = f"封面图: {cover_url[:80] if cover_url else '未找到封面图（跳过）'}"
+            if cover_url:
+                cover_msg = (
+                    f"封面图: {cover_url[:80]}（关键词：{matched_keyword or 'unknown'}）"
+                )
+            else:
+                tried = "、".join(attempted_keywords[:6]) or "无"
+                cover_msg = f"未找到封面图，已尝试关键词：{tried}"
             t = await db.get(Task, task_id)
             t.last_step_at = datetime.now(timezone.utc)
             _add_log(db, task_id, TaskStep.COVER, cover_lvl, cover_msg)
             await db.commit()
         await _ws_log(rc_log, task_id, TaskStep.COVER, cover_lvl, cover_msg)
+
+        if not cover_url:
+            err_msg = (
+                "未找到可用封面图，已停止自动发布并保留草稿；"
+                f"已尝试关键词：{'、'.join(attempted_keywords[:6]) or '无'}"
+            )
+            async with _worker_session() as db:
+                if article_id:
+                    art = await db.get(Article, article_id)
+                    if art:
+                        art.publish_status = PublishStatus.PUBLISH_FAILED
+                    await _audit.record_publish_attempt(
+                        db,
+                        article_id=article_id,
+                        request_summary={
+                            "title": title,
+                            "bjh_article_id": bjh_aid,
+                            "cover_keywords": attempted_keywords,
+                        },
+                        response_code=None,
+                        error_type="cover_not_found",
+                        error_message=err_msg[:500],
+                    )
+                t = await db.get(Task, task_id)
+                t.status = TaskStatus.FAILED
+                t.error_type = TaskErrorType.PUBLISH_FAILED_DRAFT_SAVED
+                t.error_message = err_msg[:500]
+                t.finished_at = datetime.now(timezone.utc)
+                _add_log(db, task_id, TaskStep.PUBLISH, LogLevel.ERROR, err_msg)
+                await _audit.record_content_event(
+                    db,
+                    event_type=ContentEventType.TASK_FAILED.value,
+                    account_id=account_id,
+                    category=category,
+                    task_id=task_id,
+                    payload={
+                        "error_type": t.error_type.value,
+                        "error_message": err_msg[:200],
+                        "cover_keywords": attempted_keywords[:6],
+                    },
+                )
+                await db.commit()
+            await _ws_log(rc_log, task_id, TaskStep.PUBLISH, LogLevel.ERROR, err_msg)
+            await publish_done(rc_log, task_id, TaskStatus.FAILED)
+            await _send_failure_notify(task_id, account_name, err_msg)
+            return
 
         # ── Step 6: PUBLISH ───────────────────────────────────────────────────
         current_step = TaskStep.PUBLISH
@@ -345,7 +402,7 @@ async def _async_run_task(task_id: int) -> None:
 
         pub_result = await _bjh.publish_article(
             cookie, edit_token, bjh_aid, title, body_html,
-            cover_url or "", cate_d1, cate_d2,
+            cover_url, cate_d1, cate_d2,
             timeout=float(pub_timeout),
         )
 
@@ -559,12 +616,6 @@ def _classify_error(exc: Exception) -> TaskErrorType:
     if isinstance(exc, (json.JSONDecodeError, KeyError, ValueError)):
         return TaskErrorType.PARSE_ERROR
     return TaskErrorType.WORKER_CRASH
-
-
-def _extract_keyword(title: str, category: str) -> str:
-    """从标题提取中文关键词用于封面图搜索。"""
-    cn_chars = re.findall(r"[\u4e00-\u9fff]+", title)
-    return cn_chars[0][:4] if cn_chars else category[:4]
 
 
 async def _ws_log(

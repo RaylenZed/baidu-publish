@@ -17,10 +17,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.constants import ContentWarning, PublishStatus
 from app.core.exceptions import (
+    AppException,
     ArticleNotFoundException,
     ArticlePublishBlockedByWarningException,
 )
 from app.models.article import Article
+from app.utils.cover import build_cover_keywords
 
 
 class ArticleService:
@@ -146,7 +148,6 @@ class ArticleService:
         if article is None:
             raise ArticleNotFoundException(article_id)
         if article.publish_status != PublishStatus.DRAFT:
-            from app.core.exceptions import AppException
             raise AppException(
                 code="ARTICLE_NOT_EDITABLE",
                 message=f"仅 draft 状态的文章可编辑，当前状态：{article.publish_status}",
@@ -168,6 +169,7 @@ class ArticleService:
         partial_content 文章必须先由人工确认（清除 content_warning）才可发布。
         """
         from app.core.constants import CATEGORY_TO_BJH, BJH_CATEGORY_FALLBACK
+        from app.services.audit_service import AuditService
         from app.services.bjh_service import BjhService
 
         article = await db.get(Article, article_id)
@@ -179,7 +181,6 @@ class ArticleService:
             PublishStatus.DRAFT,
             PublishStatus.PUBLISH_FAILED,
         ):
-            from app.core.exceptions import AppException
             raise AppException(
                 code="ARTICLE_NOT_PUBLISHABLE",
                 message=f"当前文章状态不可发布：{article.publish_status}",
@@ -210,10 +211,41 @@ class ArticleService:
         # 封面图（失败静默）
         cover_url = article.cover_url or ""
         if not cover_url:
-            cover_url = await bjh.search_cover(
-                cookie, edit_token, article.title[:8], article.bjh_article_id
-            ) or ""
-
+            cover_keywords = build_cover_keywords(
+                title=article.title,
+                category=category,
+                topic_keyword=task.topic_keyword if task else None,
+                product_name=task.product_name if task else None,
+            )
+            cover_url, _, attempted_keywords = await bjh.search_cover_candidates(
+                cookie,
+                edit_token,
+                cover_keywords,
+                article.bjh_article_id,
+            )
+            if not cover_url:
+                article.publish_status = PublishStatus.PUBLISH_FAILED
+                error_message = (
+                    "未找到可用封面图，请修改标题后重试；"
+                    f"已尝试关键词：{'、'.join(attempted_keywords[:6]) or '无'}"
+                )
+                await AuditService().record_publish_attempt(
+                    db,
+                    article_id=article.id,
+                    request_summary={
+                        "title": article.title,
+                        "bjh_article_id": article.bjh_article_id,
+                        "cover_keywords": attempted_keywords,
+                    },
+                    response_code=None,
+                    error_type="cover_not_found",
+                    error_message=error_message[:500],
+                )
+                raise AppException(
+                    code="COVER_NOT_FOUND",
+                    message=error_message,
+                    status_code=422,
+                )
         # 正式发布
         result = await bjh.publish_article(
             cookie, edit_token, article.bjh_article_id,
@@ -222,7 +254,6 @@ class ArticleService:
         )
         if result.get("errno", -1) != 0:
             article.publish_status = PublishStatus.PUBLISH_FAILED
-            from app.core.exceptions import AppException
             raise AppException(
                 code="PUBLISH_FAILED",
                 message=f"发布失败: {result.get('errmsg', 'unknown')}",

@@ -175,6 +175,38 @@ class BjhService:
             )
             return None
 
+    async def search_cover_candidates(
+        self,
+        cookie: str,
+        edit_token: str,
+        keywords: list[str],
+        bjh_article_id: str,
+        timeout: float = 60.0,
+    ) -> tuple[str | None, str | None, list[str]]:
+        """
+        按候选关键词依次搜索封面。
+
+        返回：
+          (cover_url, matched_keyword, attempted_keywords)
+        """
+        attempted: list[str] = []
+        for keyword in keywords:
+            normalized = keyword.strip()
+            if not normalized or normalized in attempted:
+                continue
+            attempted.append(normalized)
+            cover_url = await self.search_cover(
+                cookie,
+                edit_token,
+                normalized,
+                bjh_article_id,
+                timeout=timeout,
+            )
+            if cover_url:
+                return cover_url, normalized, attempted
+
+        return None, None, attempted
+
     async def publish_article(
         self,
         cookie: str,
