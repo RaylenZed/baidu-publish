@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     APP_TITLE: str = "百家号自动化内容发布管理系统"
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = False
+    APP_TIMEZONE: str = "Asia/Shanghai"
 
     # ── 认证 ─────────────────────────────────────────────────────────────────
     ADMIN_PASSWORD: str                       # 初始管理员密码，首次启动写入 DB

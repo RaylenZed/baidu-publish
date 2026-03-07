@@ -10,6 +10,16 @@ from __future__ import annotations
 import logging
 import sys
 from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+
+def _resolve_log_timezone() -> ZoneInfo:
+    from app.core.config import settings
+
+    try:
+        return ZoneInfo(settings.APP_TIMEZONE)
+    except ZoneInfoNotFoundError:
+        return ZoneInfo("Asia/Shanghai")
 
 
 class _JsonFormatter(logging.Formatter):
@@ -17,10 +27,10 @@ class _JsonFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         import json
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         payload: dict[str, Any] = {
-            "ts": datetime.now(timezone.utc).isoformat(),
+            "ts": datetime.now(_resolve_log_timezone()).isoformat(),
             "level": record.levelname,
             "module": record.name,
             "message": record.getMessage(),
@@ -43,6 +53,14 @@ class _TextFormatter(logging.Formatter):
 
     def __init__(self) -> None:
         super().__init__(fmt=self.FORMAT, datefmt="%H:%M:%S")
+
+    def formatTime(self, record: logging.LogRecord, datefmt: str | None = None) -> str:
+        from datetime import datetime
+
+        dt = datetime.fromtimestamp(record.created, tz=_resolve_log_timezone())
+        if datefmt:
+            return dt.strftime(datefmt)
+        return dt.isoformat()
 
 
 def setup_logging() -> None:

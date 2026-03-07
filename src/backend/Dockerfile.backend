@@ -2,7 +2,7 @@ FROM python:3.11-slim
 
 # 系统依赖（asyncpg 需要 libpq）
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libpq-dev gcc \
+    libpq-dev gcc tzdata \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -17,3 +17,4 @@ COPY . .
 ENV PYTHONPATH=/app
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+ENV TZ=Asia/Shanghai

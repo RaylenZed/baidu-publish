@@ -12,6 +12,7 @@ services:
     container_name: bjh_postgres
     restart: unless-stopped
     environment:
+      TZ: ${TZ:-Asia/Shanghai}
       POSTGRES_DB: bjh_db
       POSTGRES_USER: bjh_user
       POSTGRES_PASSWORD: bjh_pass
@@ -30,6 +31,8 @@ services:
     image: redis:7-alpine
     container_name: bjh_redis
     restart: unless-stopped
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
     command: redis-server --save 60 1 --loglevel warning
     volumes:
       - redis_data:/data
@@ -49,6 +52,9 @@ services:
     container_name: bjh_backend
     restart: unless-stopped
     env_file: ./.env
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      APP_TIMEZONE: ${APP_TIMEZONE:-Asia/Shanghai}
     depends_on:
       postgres:
         condition: service_healthy
@@ -72,6 +78,9 @@ services:
     container_name: bjh_worker
     restart: unless-stopped
     env_file: ./.env
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      APP_TIMEZONE: ${APP_TIMEZONE:-Asia/Shanghai}
     depends_on:
       postgres:
         condition: service_healthy
@@ -95,6 +104,9 @@ services:
     container_name: bjh_beat
     restart: unless-stopped
     env_file: ./.env
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      APP_TIMEZONE: ${APP_TIMEZONE:-Asia/Shanghai}
     depends_on:
       postgres:
         condition: service_healthy
@@ -121,6 +133,7 @@ services:
     container_name: bjh_frontend
     restart: unless-stopped
     environment:
+      TZ: ${TZ:-Asia/Shanghai}
       VITE_PREVIEW_ALLOWED_HOSTS: ${VITE_PREVIEW_ALLOWED_HOSTS:-*}
     depends_on:
       - backend
