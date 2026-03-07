@@ -418,7 +418,12 @@ async def _async_run_task(task_id: int) -> None:
                     await _audit.record_publish_attempt(
                         db,
                         article_id=article_id,
-                        request_summary={"title": title, "bjh_article_id": bjh_aid},
+                        request_summary={
+                            "title": title,
+                            "bjh_article_id": bjh_aid,
+                            "cover_url": cover_url,
+                            "cover_keywords": attempted_keywords[:6],
+                        },
                         response_code=errno,
                         error_type=TaskErrorType.PUBLISH_FAILED_DRAFT_SAVED.value,
                         error_message=err_msg[:500],
@@ -457,7 +462,12 @@ async def _async_run_task(task_id: int) -> None:
                 await _audit.record_publish_attempt(
                     db,
                     article_id=article_id,
-                    request_summary={"title": title, "bjh_article_id": bjh_aid},
+                    request_summary={
+                        "title": title,
+                        "bjh_article_id": bjh_aid,
+                        "cover_url": cover_url,
+                        "cover_keywords": attempted_keywords[:6],
+                    },
                     response_code=0,
                     error_type=None,
                     error_message=None,

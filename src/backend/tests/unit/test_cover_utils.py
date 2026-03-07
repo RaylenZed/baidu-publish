@@ -1,4 +1,5 @@
 from app.utils.cover import build_cover_keywords
+from app.services.bjh_service import _normalize_cover_url
 
 
 def test_build_cover_keywords_prioritizes_product_and_topic():
@@ -33,3 +34,10 @@ def test_build_cover_keywords_deduplicates_and_cleans_title_parts():
 
     assert keywords.count("读书方法") == 1
     assert all("《" not in keyword and "》" not in keyword for keyword in keywords)
+
+
+def test_normalize_cover_url_upgrades_http_to_https():
+    assert (
+        _normalize_cover_url("http://baijiahao.baidu.com/bjh/picproxy?param=abc")
+        == "https://baijiahao.baidu.com/bjh/picproxy?param=abc"
+    )

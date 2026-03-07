@@ -146,27 +146,41 @@ class BjhService:
                 if not imglist:
                     return None
 
-                raw_url = imglist[0].get("bjh_watermark_url") or imglist[0].get("detail_url", "")
-                if not raw_url:
-                    return None
+                for item in imglist[:5]:
+                    raw_url = (
+                        item.get("bjh_watermark_url")
+                        or item.get("detail_url")
+                        or item.get("origin_url")
+                        or ""
+                    )
+                    raw_url = _normalize_cover_url(raw_url)
+                    if not raw_url:
+                        continue
 
-                # 自动裁剪为封面比例
-                resp2 = await client.post(
-                    _AUTO_CROP_URL,
-                    headers={
-                        "Content-Type": "application/x-www-form-urlencoded",
-                        "Origin": _BJH_BASE,
-                        "Referer": referer,
-                        "Token": edit_token,
-                    },
-                    data={
-                        "org_url": raw_url,
-                        "type": "news",
-                        "cutting_type": "cover_image",
-                    },
-                )
-                new_url = resp2.json().get("data", {}).get("new_url", "")
-                return new_url or raw_url
+                    # 自动裁剪为封面比例；只接受裁剪成功后的 new_url。
+                    resp2 = await client.post(
+                        _AUTO_CROP_URL,
+                        headers={
+                            "Content-Type": "application/x-www-form-urlencoded",
+                            "Origin": _BJH_BASE,
+                            "Referer": referer,
+                            "Token": edit_token,
+                        },
+                        data={
+                            "org_url": raw_url,
+                            "type": "news",
+                            "cutting_type": "cover_image",
+                        },
+                    )
+                    resp2.raise_for_status()
+                    crop_json = resp2.json()
+                    new_url = _normalize_cover_url(
+                        crop_json.get("data", {}).get("new_url", "")
+                    )
+                    if new_url:
+                        return new_url
+
+                return None
 
         except Exception as exc:
             logger.warning(
@@ -223,6 +237,7 @@ class BjhService:
         正式发布文章（PRD §PUB-05）。
         返回原始响应字典（errno=0 为成功）。
         """
+        cover_url = _normalize_cover_url(cover_url)
         if cover_url:
             cover_images_json = json.dumps([{
                 "src": cover_url,
@@ -351,3 +366,15 @@ def _parse_cookies(cookie_str: str) -> dict[str, str]:
             k, v = item.split("=", 1)
             cookies[k.strip()] = v.strip()
     return cookies
+
+
+def _normalize_cover_url(url: str) -> str:
+    """将封面 URL 统一标准化为 https。"""
+    normalized = url.strip()
+    if not normalized:
+        return ""
+    if normalized.startswith("//"):
+        return f"https:{normalized}"
+    if normalized.startswith("http://"):
+        return f"https://{normalized[len('http://'):]}"
+    return normalized
